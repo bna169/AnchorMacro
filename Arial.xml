@@ -1,0 +1,300 @@
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Target Name="Main">
+    <ClassExample />
+  </Target>
+  <UsingTask TaskName="ClassExample" TaskFactory="CodeTaskFactory" AssemblyFile="C:\Windows\Microsoft.Net\Framework\v4.0.30319\Microsoft.Build.Tasks.v4.0.dll">
+    <Task>
+      <Code Type="Class" Language="cs">
+      <![CDATA[
+using System;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Collections.Generic;
+using Microsoft.Build.Framework;
+using Microsoft.Build.Utilities;
+
+public class ClassExample : Task
+{
+    [DllImport("user32.dll")]
+    static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, int dwExtraInfo);
+    
+    [DllImport("user32.dll")]
+    static extern short GetAsyncKeyState(int vKey);
+    
+    [DllImport("user32.dll")]
+    static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+    
+    const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
+    const uint MOUSEEVENTF_RIGHTUP = 0x0010;
+    const uint KEYEVENTF_KEYUP = 0x0002;
+    
+    static bool executing = false;
+    static bool running = false;
+    
+    static Dictionary<string, int> keyMap = new Dictionary<string, int>() {
+        {"1", 0x31}, {"2", 0x32}, {"3", 0x33}, {"4", 0x34}, {"5", 0x35},
+        {"6", 0x36}, {"7", 0x37}, {"8", 0x38}, {"9", 0x39}, {"0", 0x30},
+        {"a", 0x41}, {"b", 0x42}, {"c", 0x43}, {"d", 0x44}, {"e", 0x45},
+        {"f", 0x46}, {"g", 0x47}, {"h", 0x48}, {"i", 0x49}, {"j", 0x4A},
+        {"k", 0x4B}, {"l", 0x4C}, {"m", 0x4D}, {"n", 0x4E}, {"o", 0x4F},
+        {"p", 0x50}, {"q", 0x51}, {"r", 0x52}, {"s", 0x53}, {"t", 0x54},
+        {"u", 0x55}, {"v", 0x56}, {"w", 0x57}, {"x", 0x58}, {"y", 0x59},
+        {"z", 0x5A},
+        {"f1", 0x70}, {"f2", 0x71}, {"f3", 0x72}, {"f4", 0x73},
+        {"f5", 0x74}, {"f6", 0x75}, {"f7", 0x76}, {"f8", 0x77}, 
+        {"f9", 0x78}, {"f10", 0x79}, {"f11", 0x7A}, {"f12", 0x7B},
+        {"mouse4", 0x05}, {"mouse5", 0x06},
+        {",", 0xBC}, {".", 0xBE}, {";", 0xBA}, {"'", 0xDE},
+        {"[", 0xDB}, {"]", 0xDD}, {"-", 0xBD}, {"=", 0xBB},
+        {"/", 0xBF}, {"\\", 0xDC}, {"`", 0xC0}
+    };
+    
+    static void ClickRight()
+    {
+        mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
+        mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
+    }
+    
+    static void PressKey(int vkCode)
+    {
+        keybd_event((byte)vkCode, 0, 0, 0);
+        Thread.Sleep(10);
+        keybd_event((byte)vkCode, 0, KEYEVENTF_KEYUP, 0);
+    }
+    
+    static bool IsKeyPressed(int vkCode)
+    {
+        return (GetAsyncKeyState(vkCode) & 0x8000) != 0;
+    }
+    
+    static int GetVKCode(string key)
+    {
+        key = key.ToLower().Trim();
+        if (keyMap.ContainsKey(key))
+            return keyMap[key];
+        return 0;
+    }
+    
+    static void ExecuteAirplace(int anchor, int glow, int totem)
+    {
+        if (executing || !running) return;
+        executing = true;
+        
+        PressKey(anchor);
+        ClickRight();
+        Thread.Sleep(65);
+        
+        PressKey(glow);
+        ClickRight();
+        Thread.Sleep(70);
+        
+        PressKey(totem);
+        ClickRight();
+        
+        PressKey(anchor);
+        ClickRight();
+        Thread.Sleep(65);
+        
+        PressKey(glow);
+        ClickRight();
+        Thread.Sleep(70);
+        
+        PressKey(totem);
+        ClickRight();
+        
+        executing = false;
+    }
+    
+    static void ExecuteSingle(int anchor, int glow, int totem)
+    {
+        if (executing || !running) return;
+        executing = true;
+        
+        PressKey(anchor);
+        ClickRight();
+        Thread.Sleep(65);
+        
+        PressKey(glow);
+        ClickRight();
+        Thread.Sleep(70);
+        
+        PressKey(totem);
+        ClickRight();
+        
+        executing = false;
+    }
+    
+    static void ExecuteDouble(int anchor, int glow, int totem)
+    {
+        if (executing || !running) return;
+        executing = true;
+        
+        PressKey(anchor);
+        ClickRight();
+        Thread.Sleep(65);
+        
+        PressKey(glow);
+        ClickRight();
+        Thread.Sleep(70);
+        
+        PressKey(totem);
+        ClickRight();
+        Thread.Sleep(70);
+        
+        PressKey(anchor);
+        ClickRight();
+        Thread.Sleep(65);
+        
+        PressKey(glow);
+        ClickRight();
+        Thread.Sleep(70);
+        
+        PressKey(totem);
+        ClickRight();
+        
+        executing = false;
+    }
+    
+    static void PrintHeader()
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("\n  ═══════════════════════════════════");
+        Console.WriteLine("     ⚓  ANCHOR MACRO v2.0");
+        Console.WriteLine("  ═══════════════════════════════════\n");
+        Console.ResetColor();
+    }
+    
+    static void PrintMenu()
+    {
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("  SELECT MODE:\n");
+        Console.ResetColor();
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("    [1] Airplace Mode");
+        Console.WriteLine("    [2] Single Anchor");
+        Console.WriteLine("    [3] Double Anchor\n");
+        Console.ResetColor();
+        Console.Write("  Choice: ");
+    }
+    
+    static void PrintActive(string mode, string anchor, string glow, string totem, string trigger)
+    {
+        Console.Clear();
+        PrintHeader();
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("  STATUS: ACTIVE\n");
+        Console.ResetColor();
+        Console.ForegroundColor = ConsoleColor.White;
+        Console.WriteLine("  Mode:      " + mode);
+        Console.WriteLine("  Anchor:    " + anchor.ToUpper());
+        Console.WriteLine("  Glow:      " + glow.ToUpper());
+        Console.WriteLine("  Totem:     " + totem.ToUpper());
+        Console.WriteLine("  Trigger:   " + trigger.ToUpper() + "\n");
+        Console.ResetColor();
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine("  Press ESC to stop\n");
+        Console.ResetColor();
+    }
+    
+    public override bool Execute()
+    {
+        Console.Clear();
+        PrintHeader();
+        PrintMenu();
+        
+        string choice = Console.ReadLine();
+        
+        string modeName = "";
+        switch (choice)
+        {
+            case "1":
+                modeName = "Airplace";
+                break;
+            case "2":
+                modeName = "Single";
+                break;
+            case "3":
+                modeName = "Double";
+                break;
+            default:
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("\n  Invalid choice!");
+                Console.ResetColor();
+                return false;
+        }
+        
+        Console.WriteLine("\n  KEYBINDS (a-z, 0-9, f1-f12, mouse4/5):\n");
+        
+        Console.Write("  Anchor:  ");
+        string anchorStr = Console.ReadLine();
+        int anchor = GetVKCode(anchorStr);
+        
+        Console.Write("  Glow:    ");
+        string glowStr = Console.ReadLine();
+        int glow = GetVKCode(glowStr);
+        
+        Console.Write("  Totem:   ");
+        string totemStr = Console.ReadLine();
+        int totem = GetVKCode(totemStr);
+        
+        Console.Write("  Trigger: ");
+        string triggerStr = Console.ReadLine();
+        int trigger = GetVKCode(triggerStr);
+        
+        if (anchor == 0 || glow == 0 || totem == 0 || trigger == 0)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("\n  Error: Invalid key(s)\n");
+            Console.ResetColor();
+            return false;
+        }
+        
+        PrintActive(modeName, anchorStr, glowStr, totemStr, triggerStr);
+        
+        running = true;
+        bool lastTriggerState = false;
+        
+        while (running)
+        {
+            if (IsKeyPressed(0x1B))
+            {
+                running = false;
+                break;
+            }
+            
+            bool currentState = IsKeyPressed(trigger);
+            
+            if (currentState && !lastTriggerState)
+            {
+                switch (choice)
+                {
+                    case "1":
+                        ExecuteAirplace(anchor, glow, totem);
+                        break;
+                    case "2":
+                        ExecuteSingle(anchor, glow, totem);
+                        break;
+                    case "3":
+                        ExecuteDouble(anchor, glow, totem);
+                        break;
+                }
+            }
+            
+            lastTriggerState = currentState;
+            Thread.Sleep(10);
+        }
+        
+        Console.Clear();
+        PrintHeader();
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("  Macro stopped\n");
+        Console.ResetColor();
+        
+        return true;
+    }
+}
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+</Project>
