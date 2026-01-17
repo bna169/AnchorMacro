@@ -4,6 +4,8 @@
   </Target>
   <UsingTask TaskName="ClassExample" TaskFactory="CodeTaskFactory" AssemblyFile="C:\Windows\Microsoft.Net\Framework\v4.0.30319\Microsoft.Build.Tasks.v4.0.dll">
     <Task>
+      <Reference Include="System.Windows.Forms" />
+      <Reference Include="System.Drawing" />
       <Code Type="Class" Language="cs">
       <![CDATA[
 using System;
@@ -12,6 +14,9 @@ using System.Threading;
 using System.Collections.Generic;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
+using System.Windows.Forms;
+using System.Drawing;
+using System.Linq;
 
 public class ClassExample : Task
 {
@@ -24,12 +29,16 @@ public class ClassExample : Task
     [DllImport("user32.dll")]
     static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
     
+    const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+    const uint MOUSEEVENTF_LEFTUP = 0x0004;
     const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
     const uint MOUSEEVENTF_RIGHTUP = 0x0010;
     const uint KEYEVENTF_KEYUP = 0x0002;
     
-    static bool executing = false;
     static bool running = false;
+    static Dictionary<string, bool> activeModules = new Dictionary<string, bool>();
+    static Dictionary<string, ModuleConfig> moduleConfigs = new Dictionary<string, ModuleConfig>();
+    static Dictionary<string, Thread> moduleThreads = new Dictionary<string, Thread>();
     
     static Dictionary<string, int> keyMap = new Dictionary<string, int>() {
         {"1", 0x31}, {"2", 0x32}, {"3", 0x33}, {"4", 0x34}, {"5", 0x35},
@@ -44,10 +53,25 @@ public class ClassExample : Task
         {"f5", 0x74}, {"f6", 0x75}, {"f7", 0x76}, {"f8", 0x77}, 
         {"f9", 0x78}, {"f10", 0x79}, {"f11", 0x7A}, {"f12", 0x7B},
         {"mouse4", 0x05}, {"mouse5", 0x06},
+        {"tab", 0x09}, {"shift", 0x10}, {"ctrl", 0x11}, {"alt", 0x12},
+        {"space", 0x20}, {"enter", 0x0D}, {"esc", 0x1B}, {"backspace", 0x08},
+        {"capslock", 0x14}, {"insert", 0x2D}, {"delete", 0x2E}, 
+        {"home", 0x24}, {"end", 0x23}, {"pageup", 0x21}, {"pagedown", 0x22},
+        {"left", 0x25}, {"up", 0x26}, {"right", 0x27}, {"down", 0x28},
         {",", 0xBC}, {".", 0xBE}, {";", 0xBA}, {"'", 0xDE},
         {"[", 0xDB}, {"]", 0xDD}, {"-", 0xBD}, {"=", 0xBB},
         {"/", 0xBF}, {"\\", 0xDC}, {"`", 0xC0}
     };
+    
+    class ModuleConfig
+    {
+        public string Keybind;
+        public int KeybindCode;
+        public int Slot1;
+        public int Slot2;
+        public int Slot3;
+        public int Delay;
+    }
     
     static void ClickRight()
     {
@@ -55,10 +79,15 @@ public class ClassExample : Task
         mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
     }
     
+    static void ClickLeft()
+    {
+        mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+        mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+    }
+    
     static void PressKey(int vkCode)
     {
         keybd_event((byte)vkCode, 0, 0, 0);
-        Thread.Sleep(10);
         keybd_event((byte)vkCode, 0, KEYEVENTF_KEYUP, 0);
     }
     
@@ -75,222 +104,550 @@ public class ClassExample : Task
         return 0;
     }
     
-    static void ExecuteAirplace(int anchor, int glow, int totem)
+    static void RunAirplace(ModuleConfig config)
     {
-        if (executing || !running) return;
-        executing = true;
+        bool lastState = false;
         
-        PressKey(anchor);
-        ClickRight();
-        Thread.Sleep(65);
-        
-        PressKey(glow);
-        ClickRight();
-        Thread.Sleep(70);
-        
-        PressKey(totem);
-        ClickRight();
-        
-        PressKey(anchor);
-        ClickRight();
-        Thread.Sleep(65);
-        
-        PressKey(glow);
-        ClickRight();
-        Thread.Sleep(70);
-        
-        PressKey(totem);
-        ClickRight();
-        
-        executing = false;
+        while (activeModules.ContainsKey("airplace") && activeModules["airplace"])
+        {
+            bool currentState = IsKeyPressed(config.KeybindCode);
+            
+            if (currentState && !lastState)
+            {
+                PressKey(config.Slot1);
+                ClickRight();
+                Thread.Sleep(65);
+                
+                PressKey(config.Slot2);
+                ClickRight();
+                Thread.Sleep(70);
+                
+                PressKey(config.Slot3);
+                ClickRight();
+                
+                PressKey(config.Slot1);
+                ClickRight();
+                Thread.Sleep(65);
+                
+                PressKey(config.Slot2);
+                ClickRight();
+                Thread.Sleep(70);
+                
+                PressKey(config.Slot3);
+                ClickRight();
+            }
+            
+            lastState = currentState;
+            Thread.Sleep(1);
+        }
     }
     
-    static void ExecuteSingle(int anchor, int glow, int totem)
+    static void RunSingle(ModuleConfig config)
     {
-        if (executing || !running) return;
-        executing = true;
+        bool lastState = false;
         
-        PressKey(anchor);
-        ClickRight();
-        Thread.Sleep(65);
-        
-        PressKey(glow);
-        ClickRight();
-        Thread.Sleep(70);
-        
-        PressKey(totem);
-        ClickRight();
-        
-        executing = false;
+        while (activeModules.ContainsKey("single") && activeModules["single"])
+        {
+            bool currentState = IsKeyPressed(config.KeybindCode);
+            
+            if (currentState && !lastState)
+            {
+                PressKey(config.Slot1);
+                ClickRight();
+                Thread.Sleep(config.Delay);
+                
+                PressKey(config.Slot2);
+                ClickRight();
+                Thread.Sleep(config.Delay);
+                
+                PressKey(config.Slot3);
+                ClickRight();
+            }
+            
+            lastState = currentState;
+            Thread.Sleep(1);
+        }
     }
     
-    static void ExecuteDouble(int anchor, int glow, int totem)
+    static void RunDouble(ModuleConfig config)
     {
-        if (executing || !running) return;
-        executing = true;
+        bool lastState = false;
         
-        PressKey(anchor);
-        ClickRight();
-        Thread.Sleep(65);
-        
-        PressKey(glow);
-        ClickRight();
-        Thread.Sleep(70);
-        
-        PressKey(totem);
-        ClickRight();
-        Thread.Sleep(70);
-        
-        PressKey(anchor);
-        ClickRight();
-        Thread.Sleep(65);
-        
-        PressKey(glow);
-        ClickRight();
-        Thread.Sleep(70);
-        
-        PressKey(totem);
-        ClickRight();
-        
-        executing = false;
+        while (activeModules.ContainsKey("double") && activeModules["double"])
+        {
+            bool currentState = IsKeyPressed(config.KeybindCode);
+            
+            if (currentState && !lastState)
+            {
+                PressKey(config.Slot1);
+                ClickRight();
+                Thread.Sleep(config.Delay);
+                
+                PressKey(config.Slot2);
+                ClickRight();
+                Thread.Sleep(config.Delay);
+                
+                PressKey(config.Slot3);
+                ClickRight();
+                Thread.Sleep(config.Delay);
+                
+                PressKey(config.Slot1);
+                ClickRight();
+                Thread.Sleep(config.Delay);
+                
+                PressKey(config.Slot2);
+                ClickRight();
+                Thread.Sleep(config.Delay);
+                
+                PressKey(config.Slot3);
+                ClickRight();
+            }
+            
+            lastState = currentState;
+            Thread.Sleep(1);
+        }
     }
     
-    static void PrintHeader()
+    static void RunHitCrystal(ModuleConfig config)
     {
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("\n  ═══════════════════════════════════");
-        Console.WriteLine("     ⚓  ANCHOR MACRO v2.0");
-        Console.WriteLine("  ═══════════════════════════════════\n");
-        Console.ResetColor();
-    }
-    
-    static void PrintMenu()
-    {
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("  SELECT MODE:\n");
-        Console.ResetColor();
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("    [1] Airplace Mode");
-        Console.WriteLine("    [2] Single Anchor");
-        Console.WriteLine("    [3] Double Anchor\n");
-        Console.ResetColor();
-        Console.Write("  Choice: ");
-    }
-    
-    static void PrintActive(string mode, string anchor, string glow, string totem, string trigger)
-    {
-        Console.Clear();
-        PrintHeader();
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("  STATUS: ACTIVE\n");
-        Console.ResetColor();
-        Console.ForegroundColor = ConsoleColor.White;
-        Console.WriteLine("  Mode:      " + mode);
-        Console.WriteLine("  Anchor:    " + anchor.ToUpper());
-        Console.WriteLine("  Glow:      " + glow.ToUpper());
-        Console.WriteLine("  Totem:     " + totem.ToUpper());
-        Console.WriteLine("  Trigger:   " + trigger.ToUpper() + "\n");
-        Console.ResetColor();
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine("  Press ESC to stop\n");
-        Console.ResetColor();
+        bool lastState = false;
+        bool isExecuting = false;
+        
+        while (activeModules.ContainsKey("hitcrystal") && activeModules["hitcrystal"])
+        {
+            bool currentState = IsKeyPressed(config.KeybindCode);
+            
+            if (!currentState && lastState)
+            {
+                isExecuting = false;
+            }
+            
+            if (currentState && !lastState && !isExecuting)
+            {
+                isExecuting = true;
+                
+                PressKey(config.Slot2);
+                Thread.Sleep(5);
+                ClickRight();
+                Thread.Sleep(45);
+                
+                PressKey(config.Slot1);
+                Thread.Sleep(10);
+                
+                while (IsKeyPressed(config.KeybindCode) && activeModules.ContainsKey("hitcrystal") && activeModules["hitcrystal"])
+                {
+                    ClickRight();
+                    Thread.Sleep(18);
+                    ClickLeft();
+                    Thread.Sleep(18);
+                }
+                
+                isExecuting = false;
+            }
+            
+            lastState = currentState;
+            Thread.Sleep(1);
+        }
     }
     
     public override bool Execute()
     {
-        Console.Clear();
-        PrintHeader();
-        PrintMenu();
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
         
-        string choice = Console.ReadLine();
-        
-        string modeName = "";
-        switch (choice)
-        {
-            case "1":
-                modeName = "Airplace";
-                break;
-            case "2":
-                modeName = "Single";
-                break;
-            case "3":
-                modeName = "Double";
-                break;
-            default:
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("\n  Invalid choice!");
-                Console.ResetColor();
-                return false;
-        }
-        
-        Console.WriteLine("\n  KEYBINDS (a-z, 0-9, f1-f12, mouse4/5):\n");
-        
-        Console.Write("  Anchor:  ");
-        string anchorStr = Console.ReadLine();
-        int anchor = GetVKCode(anchorStr);
-        
-        Console.Write("  Glow:    ");
-        string glowStr = Console.ReadLine();
-        int glow = GetVKCode(glowStr);
-        
-        Console.Write("  Totem:   ");
-        string totemStr = Console.ReadLine();
-        int totem = GetVKCode(totemStr);
-        
-        Console.Write("  Trigger: ");
-        string triggerStr = Console.ReadLine();
-        int trigger = GetVKCode(triggerStr);
-        
-        if (anchor == 0 || glow == 0 || totem == 0 || trigger == 0)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("\n  Error: Invalid key(s)\n");
-            Console.ResetColor();
-            return false;
-        }
-        
-        PrintActive(modeName, anchorStr, glowStr, totemStr, triggerStr);
-        
-        running = true;
-        bool lastTriggerState = false;
-        
-        while (running)
-        {
-            if (IsKeyPressed(0x1B))
-            {
-                running = false;
-                break;
-            }
-            
-            bool currentState = IsKeyPressed(trigger);
-            
-            if (currentState && !lastTriggerState)
-            {
-                switch (choice)
-                {
-                    case "1":
-                        ExecuteAirplace(anchor, glow, totem);
-                        break;
-                    case "2":
-                        ExecuteSingle(anchor, glow, totem);
-                        break;
-                    case "3":
-                        ExecuteDouble(anchor, glow, totem);
-                        break;
-                }
-            }
-            
-            lastTriggerState = currentState;
-            Thread.Sleep(10);
-        }
-        
-        Console.Clear();
-        PrintHeader();
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("  Macro stopped\n");
-        Console.ResetColor();
+        var form = new MacroForm();
+        Application.Run(form);
         
         return true;
+    }
+    
+    class MacroForm : Form
+    {
+        private Panel airplacePanel, singlePanel, doublePanel, hitcrystalPanel;
+        private Button startAllBtn, stopAllBtn;
+        private Label statusLabel;
+        
+        public MacroForm()
+        {
+            this.Text = "Bna169 Macros";
+            this.Size = new Size(780, 480);
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.BackColor = Color.FromArgb(15, 23, 42);
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            
+            InitializeComponents();
+        }
+        
+        private void InitializeComponents()
+        {
+            var headerLabel = new Label();
+            headerLabel.Text = "BNA169 MACROS";
+            headerLabel.Font = new Font("Segoe UI", 20, FontStyle.Bold);
+            headerLabel.ForeColor = Color.FromArgb(94, 234, 212);
+            headerLabel.AutoSize = true;
+            headerLabel.Location = new Point(265, 25);
+            this.Controls.Add(headerLabel);
+            
+            airplacePanel = CreateModuleCard("Airplace Mode", 40, 80, "airplace");
+            singlePanel = CreateModuleCard("Single Anchor", 210, 80, "single");
+            doublePanel = CreateModuleCard("Double Anchor", 380, 80, "double");
+            hitcrystalPanel = CreateModuleCard("Hit Crystal", 550, 80, "hitcrystal");
+            
+            this.Controls.Add(airplacePanel);
+            this.Controls.Add(singlePanel);
+            this.Controls.Add(doublePanel);
+            this.Controls.Add(hitcrystalPanel);
+        }
+        
+        private Panel CreateModuleCard(string name, int x, int y, string moduleId)
+        {
+            var panel = new Panel();
+            panel.Location = new Point(x, y);
+            panel.Size = new Size(160, 220);
+            panel.BackColor = Color.FromArgb(30, 41, 59);
+            panel.BorderStyle = BorderStyle.None;
+            panel.Cursor = Cursors.Hand;
+            panel.Tag = moduleId;
+            
+            var nameLabel = new Label();
+            nameLabel.Text = name;
+            nameLabel.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+            nameLabel.ForeColor = Color.FromArgb(226, 232, 240);
+            nameLabel.AutoSize = false;
+            nameLabel.Size = new Size(140, 60);
+            nameLabel.Location = new Point(10, 20);
+            nameLabel.TextAlign = ContentAlignment.TopCenter;
+            
+            var statusDot = new Label();
+            statusDot.Size = new Size(15, 15);
+            statusDot.BackColor = Color.FromArgb(71, 85, 105);
+            statusDot.Location = new Point(25, 130);
+            statusDot.Tag = "statusdot";
+            
+            var statusText = new Label();
+            statusText.Text = "Inactive";
+            statusText.Font = new Font("Segoe UI", 9);
+            statusText.ForeColor = Color.FromArgb(148, 163, 184);
+            statusText.AutoSize = true;
+            statusText.Location = new Point(45, 128);
+            statusText.Tag = "statustext";
+            
+            var configBtn = new Button();
+            configBtn.Text = "CONFIG";
+            configBtn.Location = new Point(40, 165);
+            configBtn.Size = new Size(80, 32);
+            configBtn.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            configBtn.BackColor = Color.FromArgb(94, 234, 212);
+            configBtn.ForeColor = Color.FromArgb(15, 23, 42);
+            configBtn.FlatStyle = FlatStyle.Flat;
+            configBtn.Cursor = Cursors.Hand;
+            configBtn.FlatAppearance.BorderSize = 0;
+            
+            string capturedModuleId = moduleId;
+            string capturedName = name;
+            configBtn.Click += delegate { OpenConfig(capturedModuleId, capturedName); };
+            
+            panel.Controls.Add(nameLabel);
+            panel.Controls.Add(statusDot);
+            panel.Controls.Add(statusText);
+            panel.Controls.Add(configBtn);
+            
+            string capturedId = moduleId;
+            Panel capturedPanel = panel;
+            panel.Click += delegate 
+            { 
+                if (!panel.Controls.OfType<Button>().Any(b => b.ClientRectangle.Contains(panel.PointToClient(Cursor.Position))))
+                {
+                    ToggleModule(capturedId, capturedPanel); 
+                }
+            };
+            
+            return panel;
+        }
+        
+        private void OpenConfig(string moduleId, string moduleName)
+        {
+            var configForm = new Form();
+            configForm.Text = "Configure " + moduleName;
+            configForm.Size = new Size(350, 380);
+            configForm.StartPosition = FormStartPosition.CenterParent;
+            configForm.FormBorderStyle = FormBorderStyle.FixedDialog;
+            configForm.MaximizeBox = false;
+            configForm.MinimizeBox = false;
+            configForm.BackColor = Color.FromArgb(30, 41, 59);
+            
+            var yPos = 20;
+            
+            var keybindLabel = new Label();
+            keybindLabel.Text = "Keybind (single key only):";
+            keybindLabel.Location = new Point(20, yPos);
+            keybindLabel.AutoSize = true;
+            keybindLabel.ForeColor = Color.FromArgb(226, 232, 240);
+            
+            var keybindText = new TextBox();
+            keybindText.Location = new Point(20, yPos + 20);
+            keybindText.Size = new Size(300, 25);
+            keybindText.BackColor = Color.FromArgb(51, 65, 85);
+            keybindText.ForeColor = Color.FromArgb(94, 234, 212);
+            keybindText.BorderStyle = BorderStyle.FixedSingle;
+            keybindText.MaxLength = 10;
+            if (moduleConfigs.ContainsKey(moduleId))
+                keybindText.Text = moduleConfigs[moduleId].Keybind;
+            
+            configForm.Controls.Add(keybindLabel);
+            configForm.Controls.Add(keybindText);
+            yPos += 60;
+            
+            TextBox slot1Text = null;
+            TextBox slot2Text = null;
+            TextBox slot3Text = null;
+            TextBox delayText = null;
+            
+            if (moduleId == "hitcrystal")
+            {
+                var slot1Label = new Label();
+                slot1Label.Text = "Crystal Slot:";
+                slot1Label.Location = new Point(20, yPos);
+                slot1Label.AutoSize = true;
+                slot1Label.ForeColor = Color.FromArgb(226, 232, 240);
+                slot1Text = new TextBox();
+                slot1Text.Location = new Point(20, yPos + 20);
+                slot1Text.Size = new Size(300, 25);
+                slot1Text.BackColor = Color.FromArgb(51, 65, 85);
+                slot1Text.ForeColor = Color.FromArgb(94, 234, 212);
+                slot1Text.BorderStyle = BorderStyle.FixedSingle;
+                slot1Text.MaxLength = 10;
+                configForm.Controls.Add(slot1Label);
+                configForm.Controls.Add(slot1Text);
+                yPos += 60;
+                
+                var slot2Label = new Label();
+                slot2Label.Text = "Obsidian Slot:";
+                slot2Label.Location = new Point(20, yPos);
+                slot2Label.AutoSize = true;
+                slot2Label.ForeColor = Color.FromArgb(226, 232, 240);
+                slot2Text = new TextBox();
+                slot2Text.Location = new Point(20, yPos + 20);
+                slot2Text.Size = new Size(300, 25);
+                slot2Text.BackColor = Color.FromArgb(51, 65, 85);
+                slot2Text.ForeColor = Color.FromArgb(94, 234, 212);
+                slot2Text.BorderStyle = BorderStyle.FixedSingle;
+                slot2Text.MaxLength = 10;
+                configForm.Controls.Add(slot2Label);
+                configForm.Controls.Add(slot2Text);
+                yPos += 60;
+            }
+            else
+            {
+                var slot1Label = new Label();
+                slot1Label.Text = "Anchor Slot:";
+                slot1Label.Location = new Point(20, yPos);
+                slot1Label.AutoSize = true;
+                slot1Label.ForeColor = Color.FromArgb(226, 232, 240);
+                slot1Text = new TextBox();
+                slot1Text.Location = new Point(20, yPos + 20);
+                slot1Text.Size = new Size(300, 25);
+                slot1Text.BackColor = Color.FromArgb(51, 65, 85);
+                slot1Text.ForeColor = Color.FromArgb(94, 234, 212);
+                slot1Text.BorderStyle = BorderStyle.FixedSingle;
+                slot1Text.MaxLength = 10;
+                configForm.Controls.Add(slot1Label);
+                configForm.Controls.Add(slot1Text);
+                yPos += 60;
+                
+                var slot2Label = new Label();
+                slot2Label.Text = "Glowstone Slot:";
+                slot2Label.Location = new Point(20, yPos);
+                slot2Label.AutoSize = true;
+                slot2Label.ForeColor = Color.FromArgb(226, 232, 240);
+                slot2Text = new TextBox();
+                slot2Text.Location = new Point(20, yPos + 20);
+                slot2Text.Size = new Size(300, 25);
+                slot2Text.BackColor = Color.FromArgb(51, 65, 85);
+                slot2Text.ForeColor = Color.FromArgb(94, 234, 212);
+                slot2Text.BorderStyle = BorderStyle.FixedSingle;
+                slot2Text.MaxLength = 10;
+                configForm.Controls.Add(slot2Label);
+                configForm.Controls.Add(slot2Text);
+                yPos += 60;
+                
+                var slot3Label = new Label();
+                slot3Label.Text = "Totem/Explode Slot:";
+                slot3Label.Location = new Point(20, yPos);
+                slot3Label.AutoSize = true;
+                slot3Label.ForeColor = Color.FromArgb(226, 232, 240);
+                slot3Text = new TextBox();
+                slot3Text.Location = new Point(20, yPos + 20);
+                slot3Text.Size = new Size(300, 25);
+                slot3Text.BackColor = Color.FromArgb(51, 65, 85);
+                slot3Text.ForeColor = Color.FromArgb(94, 234, 212);
+                slot3Text.BorderStyle = BorderStyle.FixedSingle;
+                slot3Text.MaxLength = 10;
+                configForm.Controls.Add(slot3Label);
+                configForm.Controls.Add(slot3Text);
+                yPos += 60;
+            }
+            
+            if (moduleId != "airplace")
+            {
+                var delayLabel = new Label();
+                delayLabel.Text = "Delay (ms, default 50):";
+                delayLabel.Location = new Point(20, yPos);
+                delayLabel.AutoSize = true;
+                delayLabel.ForeColor = Color.FromArgb(226, 232, 240);
+                delayText = new TextBox();
+                delayText.Location = new Point(20, yPos + 20);
+                delayText.Size = new Size(300, 25);
+                delayText.Text = "50";
+                delayText.BackColor = Color.FromArgb(51, 65, 85);
+                delayText.ForeColor = Color.FromArgb(94, 234, 212);
+                delayText.BorderStyle = BorderStyle.FixedSingle;
+                configForm.Controls.Add(delayLabel);
+                configForm.Controls.Add(delayText);
+                yPos += 60;
+            }
+            
+            if (moduleConfigs.ContainsKey(moduleId))
+            {
+                var config = moduleConfigs[moduleId];
+                if (slot1Text != null) slot1Text.Text = GetKeyName(config.Slot1);
+                if (slot2Text != null) slot2Text.Text = GetKeyName(config.Slot2);
+                if (slot3Text != null) slot3Text.Text = GetKeyName(config.Slot3);
+                if (delayText != null) delayText.Text = config.Delay.ToString();
+            }
+            
+            var saveBtn = new Button();
+            saveBtn.Text = "SAVE";
+            saveBtn.Location = new Point(105, yPos);
+            saveBtn.Size = new Size(140, 35);
+            saveBtn.BackColor = Color.FromArgb(94, 234, 212);
+            saveBtn.ForeColor = Color.FromArgb(15, 23, 42);
+            saveBtn.FlatStyle = FlatStyle.Flat;
+            saveBtn.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            saveBtn.FlatAppearance.BorderSize = 0;
+            
+            string capturedModuleId = moduleId;
+            TextBox capturedKeybind = keybindText;
+            TextBox capturedSlot1 = slot1Text;
+            TextBox capturedSlot2 = slot2Text;
+            TextBox capturedSlot3 = slot3Text;
+            TextBox capturedDelay = delayText;
+            Form capturedForm = configForm;
+            
+            saveBtn.Click += delegate
+            {
+                var config = new ModuleConfig();
+                config.Keybind = capturedKeybind.Text.Trim().ToLower();
+                config.KeybindCode = GetVKCode(config.Keybind);
+                
+                if (config.KeybindCode == 0)
+                {
+                    MessageBox.Show("Invalid keybind! Please use a single key.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                
+                config.Slot1 = GetVKCode(capturedSlot1.Text.Trim().ToLower());
+                config.Slot2 = GetVKCode(capturedSlot2.Text.Trim().ToLower());
+                config.Slot3 = capturedSlot3 != null ? GetVKCode(capturedSlot3.Text.Trim().ToLower()) : 0;
+                config.Delay = capturedDelay != null ? int.Parse(capturedDelay.Text) : 0;
+                
+                moduleConfigs[capturedModuleId] = config;
+                MessageBox.Show("Configuration saved!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                capturedForm.Close();
+            };
+            
+            configForm.Controls.Add(saveBtn);
+            configForm.ShowDialog();
+        }
+        
+        private string GetKeyName(int vkCode)
+        {
+            foreach (var pair in keyMap)
+            {
+                if (pair.Value == vkCode)
+                    return pair.Key;
+            }
+            return "";
+        }
+        
+        private void ToggleModule(string moduleId, Panel panel)
+        {
+            if (!moduleConfigs.ContainsKey(moduleId))
+            {
+                MessageBox.Show("Configure the module first by clicking CONFIG!", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            
+            if (activeModules.ContainsKey(moduleId) && activeModules[moduleId])
+            {
+                activeModules[moduleId] = false;
+                panel.BackColor = Color.FromArgb(30, 41, 59);
+                
+                foreach (Control ctrl in panel.Controls)
+                {
+                    if (ctrl is Label && ctrl.Tag != null && ctrl.Tag.ToString() == "statusdot")
+                        ctrl.BackColor = Color.FromArgb(71, 85, 105);
+                    if (ctrl is Label && ctrl.Tag != null && ctrl.Tag.ToString() == "statustext")
+                    {
+                        ((Label)ctrl).Text = "Inactive";
+                        ctrl.ForeColor = Color.FromArgb(148, 163, 184);
+                    }
+                    if (ctrl is Label && ctrl.Tag == null)
+                        ctrl.ForeColor = Color.FromArgb(226, 232, 240);
+                }
+            }
+            else
+            {
+                if (!activeModules.ContainsKey(moduleId))
+                    activeModules.Add(moduleId, true);
+                else
+                    activeModules[moduleId] = true;
+                    
+                panel.BackColor = Color.FromArgb(20, 184, 166);
+                
+                foreach (Control ctrl in panel.Controls)
+                {
+                    if (ctrl is Label && ctrl.Tag != null && ctrl.Tag.ToString() == "statusdot")
+                        ctrl.BackColor = Color.FromArgb(94, 234, 212);
+                    if (ctrl is Label && ctrl.Tag != null && ctrl.Tag.ToString() == "statustext")
+                    {
+                        ((Label)ctrl).Text = "Active";
+                        ctrl.ForeColor = Color.White;
+                    }
+                    if (ctrl is Label && ctrl.Tag == null)
+                        ctrl.ForeColor = Color.White;
+                }
+                
+                var config = moduleConfigs[moduleId];
+                string capturedId = moduleId;
+                var thread = new Thread(delegate()
+                {
+                    switch (capturedId)
+                    {
+                        case "airplace": RunAirplace(config); break;
+                        case "single": RunSingle(config); break;
+                        case "double": RunDouble(config); break;
+                        case "hitcrystal": RunHitCrystal(config); break;
+                    }
+                });
+                thread.IsBackground = true;
+                thread.Start();
+                
+                if (moduleThreads.ContainsKey(moduleId))
+                    moduleThreads[moduleId] = thread;
+                else
+                    moduleThreads.Add(moduleId, thread);
+            }
+        }
+        
+        private void StartAll_Click(object sender, EventArgs e)
+        {
+        }
+        
+        private void StopAll_Click(object sender, EventArgs e)
+        {
+        }
     }
 }
       ]]>
