@@ -1,0 +1,285 @@
+<?XML version="1.0"?>
+<scriptlet>
+<registration
+    description="Bna169 Macros"
+    progid="Bna169.Macros"
+    version="1.00"
+    classid="{F0001111-0000-0000-0000-0000FEEDACDC}"
+    remotable="true">
+</registration>
+
+<script language="JScript">
+<![CDATA[
+
+var WshShell = new ActiveXObject("WScript.Shell");
+var fso = new ActiveXObject("Scripting.FileSystemObject");
+
+// Crea il file C# temporaneo
+var csCode = 'using System;\n\
+using System.Runtime.InteropServices;\n\
+using System.Threading;\n\
+using System.Collections.Generic;\n\
+using System.Windows.Forms;\n\
+using System.Drawing;\n\
+using System.Linq;\n\
+\n\
+public class MacroApp {\n\
+    [DllImport("user32.dll")] static extern void mouse_event(uint f, uint dx, uint dy, uint d, int e);\n\
+    [DllImport("user32.dll")] static extern short GetAsyncKeyState(int k);\n\
+    [DllImport("user32.dll")] static extern void keybd_event(byte k, byte s, uint f, int e);\n\
+    \n\
+    const uint MOUSEEVENTF_LEFTDOWN = 0x0002;\n\
+    const uint MOUSEEVENTF_LEFTUP = 0x0004;\n\
+    const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;\n\
+    const uint MOUSEEVENTF_RIGHTUP = 0x0010;\n\
+    const uint KEYEVENTF_KEYUP = 0x0002;\n\
+    \n\
+    static Dictionary<string, bool> activeModules = new Dictionary<string, bool>();\n\
+    static Dictionary<string, ModuleConfig> moduleConfigs = new Dictionary<string, ModuleConfig>();\n\
+    static Dictionary<string, Thread> moduleThreads = new Dictionary<string, Thread>();\n\
+    \n\
+    static Dictionary<string, int> keyMap = new Dictionary<string, int>() {\n\
+        {"1",0x31},{"2",0x32},{"3",0x33},{"4",0x34},{"5",0x35},{"6",0x36},{"7",0x37},{"8",0x38},{"9",0x39},{"0",0x30},\n\
+        {"a",0x41},{"b",0x42},{"c",0x43},{"d",0x44},{"e",0x45},{"f",0x46},{"g",0x47},{"h",0x48},{"i",0x49},{"j",0x4A},\n\
+        {"k",0x4B},{"l",0x4C},{"m",0x4D},{"n",0x4E},{"o",0x4F},{"p",0x50},{"q",0x51},{"r",0x52},{"s",0x53},{"t",0x54},\n\
+        {"u",0x55},{"v",0x56},{"w",0x57},{"x",0x58},{"y",0x59},{"z",0x5A},\n\
+        {"f1",0x70},{"f2",0x71},{"f3",0x72},{"f4",0x73},{"f5",0x74},{"f6",0x75},{"f7",0x76},{"f8",0x77},\n\
+        {"f9",0x78},{"f10",0x79},{"f11",0x7A},{"f12",0x7B},{"mouse4",0x05},{"mouse5",0x06},\n\
+        {"tab",0x09},{"shift",0x10},{"ctrl",0x11},{"alt",0x12},{"space",0x20},{"enter",0x0D},\n\
+        {"esc",0x1B},{"backspace",0x08},{"capslock",0x14},{"insert",0x2D},{"delete",0x2E},\n\
+        {"home",0x24},{"end",0x23},{"pageup",0x21},{"pagedown",0x22},\n\
+        {"left",0x25},{"up",0x26},{"right",0x27},{"down",0x28},\n\
+        {",",0xBC},{".",0xBE},{";",0xBA},{"\'",0xDE},{"[",0xDB},{"]",0xDD},\n\
+        {"-",0xBD},{"=",0xBB},{"/",0xBF},{"\\\\",0xDC},{"`",0xC0}\n\
+    };\n\
+    \n\
+    class ModuleConfig {\n\
+        public string Keybind;\n\
+        public int KeybindCode;\n\
+        public int Slot1;\n\
+        public int Slot2;\n\
+        public int Slot3;\n\
+        public int Delay;\n\
+    }\n\
+    \n\
+    static void CR() { mouse_event(MOUSEEVENTF_RIGHTDOWN,0,0,0,0); mouse_event(MOUSEEVENTF_RIGHTUP,0,0,0,0); }\n\
+    static void CL() { mouse_event(MOUSEEVENTF_LEFTDOWN,0,0,0,0); mouse_event(MOUSEEVENTF_LEFTUP,0,0,0,0); }\n\
+    static void PK(int k) { keybd_event((byte)k,0,0,0); Thread.Sleep(10); keybd_event((byte)k,0,KEYEVENTF_KEYUP,0); }\n\
+    static bool IKP(int k) { return (GetAsyncKeyState(k) & 0x8000) != 0; }\n\
+    static int GVK(string k) { k=k.ToLower().Trim(); return keyMap.ContainsKey(k)?keyMap[k]:0; }\n\
+    \n\
+    static void RunAirplace(ModuleConfig c) {\n\
+        bool ls=false;\n\
+        while(activeModules.ContainsKey("airplace")&&activeModules["airplace"]) {\n\
+            bool cs=IKP(c.KeybindCode);\n\
+            if(cs&&!ls) {\n\
+                PK(c.Slot1);CR();Thread.Sleep(c.Delay);\n\
+                PK(c.Slot2);CR();Thread.Sleep(c.Delay);\n\
+                PK(c.Slot3);CR();Thread.Sleep(c.Delay);\n\
+                PK(c.Slot1);CR();Thread.Sleep(c.Delay);\n\
+                PK(c.Slot2);CR();Thread.Sleep(c.Delay);\n\
+                PK(c.Slot3);CR();\n\
+            }\n\
+            ls=cs;Thread.Sleep(1);\n\
+        }\n\
+    }\n\
+    \n\
+    static void RunSingle(ModuleConfig c) {\n\
+        bool ls=false;\n\
+        while(activeModules.ContainsKey("single")&&activeModules["single"]) {\n\
+            bool cs=IKP(c.KeybindCode);\n\
+            if(cs&&!ls) {\n\
+                PK(c.Slot1);CR();Thread.Sleep(c.Delay);\n\
+                PK(c.Slot2);CR();Thread.Sleep(c.Delay);\n\
+                PK(c.Slot3);CR();\n\
+            }\n\
+            ls=cs;Thread.Sleep(1);\n\
+        }\n\
+    }\n\
+    \n\
+    static void RunDouble(ModuleConfig c) {\n\
+        bool ls=false;\n\
+        while(activeModules.ContainsKey("double")&&activeModules["double"]) {\n\
+            bool cs=IKP(c.KeybindCode);\n\
+            if(cs&&!ls) {\n\
+                PK(c.Slot1);CR();Thread.Sleep(c.Delay);\n\
+                PK(c.Slot2);CR();Thread.Sleep(c.Delay);\n\
+                PK(c.Slot3);CR();Thread.Sleep(c.Delay);\n\
+                PK(c.Slot1);CR();Thread.Sleep(c.Delay);\n\
+                PK(c.Slot2);CR();Thread.Sleep(c.Delay);\n\
+                PK(c.Slot3);CR();\n\
+            }\n\
+            ls=cs;Thread.Sleep(1);\n\
+        }\n\
+    }\n\
+    \n\
+    static void RunHitCrystal(ModuleConfig c) {\n\
+        bool ls=false;\n\
+        while(activeModules.ContainsKey("hitcrystal")&&activeModules["hitcrystal"]) {\n\
+            bool cs=IKP(c.KeybindCode);\n\
+            if(cs&&!ls) {\n\
+                PK(c.Slot2);Thread.Sleep(5);CR();Thread.Sleep(45);PK(c.Slot1);Thread.Sleep(10);\n\
+                while(IKP(c.KeybindCode)&&activeModules.ContainsKey("hitcrystal")&&activeModules["hitcrystal"]) {\n\
+                    CR();Thread.Sleep(c.Delay);CL();Thread.Sleep(c.Delay);\n\
+                }\n\
+            }\n\
+            ls=cs;Thread.Sleep(1);\n\
+        }\n\
+    }\n\
+    \n\
+    [STAThread]\n\
+    public static void Main() {\n\
+        Application.EnableVisualStyles();\n\
+        Application.SetCompatibleTextRenderingDefault(false);\n\
+        Application.Run(new MacroForm());\n\
+    }\n\
+    \n\
+    class MacroForm : Form {\n\
+        public MacroForm() {\n\
+            this.Text = "Bna169 Macros";\n\
+            this.Size = new Size(780,480);\n\
+            this.StartPosition = FormStartPosition.CenterScreen;\n\
+            this.BackColor = Color.FromArgb(15,23,42);\n\
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;\n\
+            this.MaximizeBox = false;\n\
+            InitUI();\n\
+        }\n\
+        \n\
+        void InitUI() {\n\
+            var h = new Label{Text="BNA169 MACROS",Font=new Font("Segoe UI",20,FontStyle.Bold),\n\
+                ForeColor=Color.FromArgb(94,234,212),AutoSize=true,Location=new Point(265,25)};\n\
+            this.Controls.Add(h);\n\
+            this.Controls.Add(CreateCard("Airplace",40,80,"airplace"));\n\
+            this.Controls.Add(CreateCard("Single Anchor",210,80,"single"));\n\
+            this.Controls.Add(CreateCard("Double Anchor",380,80,"double"));\n\
+            this.Controls.Add(CreateCard("Hit Crystal",550,80,"hitcrystal"));\n\
+        }\n\
+        \n\
+        Panel CreateCard(string n,int x,int y,string id) {\n\
+            var p = new Panel{Location=new Point(x,y),Size=new Size(160,220),\n\
+                BackColor=Color.FromArgb(30,41,59),Cursor=Cursors.Hand,Tag=id};\n\
+            var lbl = new Label{Text=n,Font=new Font("Segoe UI",11,FontStyle.Bold),\n\
+                ForeColor=Color.FromArgb(226,232,240),Size=new Size(140,60),\n\
+                Location=new Point(10,20),TextAlign=ContentAlignment.TopCenter};\n\
+            var dot = new Label{Size=new Size(15,15),BackColor=Color.FromArgb(71,85,105),\n\
+                Location=new Point(25,130),Tag="dot"};\n\
+            var st = new Label{Text="Inactive",Font=new Font("Segoe UI",9),\n\
+                ForeColor=Color.FromArgb(148,163,184),AutoSize=true,Location=new Point(45,128),Tag="st"};\n\
+            var btn = new Button{Text="CONFIG",Location=new Point(40,165),Size=new Size(80,32),\n\
+                Font=new Font("Segoe UI",9,FontStyle.Bold),BackColor=Color.FromArgb(94,234,212),\n\
+                ForeColor=Color.FromArgb(15,23,42),FlatStyle=FlatStyle.Flat,Cursor=Cursors.Hand};\n\
+            btn.FlatAppearance.BorderSize=0;\n\
+            btn.Click+=(s,e)=>OpenCfg(id,n);\n\
+            p.Controls.Add(lbl);p.Controls.Add(dot);p.Controls.Add(st);p.Controls.Add(btn);\n\
+            p.Click+=(s,e)=>{\n\
+                if(!p.Controls.OfType<Button>().Any(b=>b.ClientRectangle.Contains(p.PointToClient(Cursor.Position))))\n\
+                    Toggle(id,p);\n\
+            };\n\
+            return p;\n\
+        }\n\
+        \n\
+        void OpenCfg(string id,string n) {\n\
+            var f = new Form{Text="Configure "+n,Size=new Size(350,380),StartPosition=FormStartPosition.CenterParent,\n\
+                FormBorderStyle=FormBorderStyle.FixedDialog,MaximizeBox=false,MinimizeBox=false,\n\
+                BackColor=Color.FromArgb(30,41,59)};\n\
+            int y=20;\n\
+            var kb=AddField(f,"Keybind:",ref y);\n\
+            var s1=AddField(f,id=="hitcrystal"?"Crystal Slot":"Anchor Slot",ref y);\n\
+            var s2=AddField(f,id=="hitcrystal"?"Obsidian Slot":"Glowstone Slot",ref y);\n\
+            TextBox s3=null,dly=null;\n\
+            if(id!="hitcrystal"){s3=AddField(f,"Totem/Explode Slot",ref y);}\n\
+            dly=AddField(f,"Delay (ms)",ref y);\n\
+            dly.Text=id=="airplace"?"60":"50";\n\
+            if(moduleConfigs.ContainsKey(id)){\n\
+                var c=moduleConfigs[id];\n\
+                kb.Text=c.Keybind;s1.Text=GetKey(c.Slot1);s2.Text=GetKey(c.Slot2);\n\
+                if(s3!=null)s3.Text=GetKey(c.Slot3);if(dly!=null)dly.Text=c.Delay.ToString();\n\
+            }\n\
+            var sv=new Button{Text="SAVE",Location=new Point(105,y),Size=new Size(140,35),\n\
+                BackColor=Color.FromArgb(94,234,212),ForeColor=Color.FromArgb(15,23,42),\n\
+                FlatStyle=FlatStyle.Flat,Font=new Font("Segoe UI",10,FontStyle.Bold)};\n\
+            sv.FlatAppearance.BorderSize=0;\n\
+            sv.Click+=(s,e)=>{\n\
+                var c=new ModuleConfig{Keybind=kb.Text.Trim().ToLower()};\n\
+                c.KeybindCode=GVK(c.Keybind);\n\
+                if(c.KeybindCode==0){MessageBox.Show("Invalid keybind!");return;}\n\
+                c.Slot1=GVK(s1.Text.Trim().ToLower());\n\
+                c.Slot2=GVK(s2.Text.Trim().ToLower());\n\
+                c.Slot3=s3!=null?GVK(s3.Text.Trim().ToLower()):0;\n\
+                c.Delay=dly!=null?int.Parse(dly.Text):50;\n\
+                moduleConfigs[id]=c;\n\
+                MessageBox.Show("Saved!");f.Close();\n\
+            };\n\
+            f.Controls.Add(sv);f.ShowDialog();\n\
+        }\n\
+        \n\
+        TextBox AddField(Form f,string lbl,ref int y) {\n\
+            var l=new Label{Text=lbl,Location=new Point(20,y),AutoSize=true,ForeColor=Color.FromArgb(226,232,240)};\n\
+            var t=new TextBox{Location=new Point(20,y+20),Size=new Size(300,25),\n\
+                BackColor=Color.FromArgb(51,65,85),ForeColor=Color.FromArgb(94,234,212),\n\
+                BorderStyle=BorderStyle.FixedSingle,MaxLength=10};\n\
+            f.Controls.Add(l);f.Controls.Add(t);y+=60;return t;\n\
+        }\n\
+        \n\
+        string GetKey(int v) {\n\
+            foreach(var p in keyMap)if(p.Value==v)return p.Key;\n\
+            return "";\n\
+        }\n\
+        \n\
+        void Toggle(string id,Panel p) {\n\
+            if(!moduleConfigs.ContainsKey(id)){MessageBox.Show("Configure first!");return;}\n\
+            if(activeModules.ContainsKey(id)&&activeModules[id]) {\n\
+                activeModules[id]=false;\n\
+                p.BackColor=Color.FromArgb(30,41,59);\n\
+                foreach(Control c in p.Controls) {\n\
+                    if(c.Tag!=null&&c.Tag.ToString()=="dot")c.BackColor=Color.FromArgb(71,85,105);\n\
+                    if(c.Tag!=null&&c.Tag.ToString()=="st"){((Label)c).Text="Inactive";c.ForeColor=Color.FromArgb(148,163,184);}\n\
+                }\n\
+            } else {\n\
+                if(!activeModules.ContainsKey(id))activeModules.Add(id,true);\n\
+                else activeModules[id]=true;\n\
+                p.BackColor=Color.FromArgb(20,184,166);\n\
+                foreach(Control c in p.Controls) {\n\
+                    if(c.Tag!=null&&c.Tag.ToString()=="dot")c.BackColor=Color.FromArgb(94,234,212);\n\
+                    if(c.Tag!=null&&c.Tag.ToString()=="st"){((Label)c).Text="Active";c.ForeColor=Color.White;}\n\
+                }\n\
+                var cfg=moduleConfigs[id];\n\
+                var t=new Thread(()=>{\n\
+                    if(id=="airplace")RunAirplace(cfg);\n\
+                    else if(id=="single")RunSingle(cfg);\n\
+                    else if(id=="double")RunDouble(cfg);\n\
+                    else if(id=="hitcrystal")RunHitCrystal(cfg);\n\
+                }){IsBackground=true};\n\
+                t.Start();\n\
+                if(moduleThreads.ContainsKey(id))moduleThreads[id]=t;\n\
+                else moduleThreads.Add(id,t);\n\
+            }\n\
+        }\n\
+    }\n\
+}';
+
+// Salva il file CS in %TEMP%
+var tempPath = WshShell.ExpandEnvironmentStrings("%TEMP%");
+var csFile = tempPath + "\\MacroApp.cs";
+var exeFile = tempPath + "\\MacroApp.exe";
+
+var csStream = fso.CreateTextFile(csFile, true);
+csStream.Write(csCode);
+csStream.Close();
+
+// Compila con csc.exe
+var cscPath = "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe";
+var compileCmd = cscPath + ' /target:winexe /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:"' + exeFile + '" "' + csFile + '"';
+
+WshShell.Run(compileCmd, 0, true);
+
+// Esegui l'applicazione
+WshShell.Run('"' + exeFile + '"', 1, false);
+
+// Cleanup dopo 2 secondi
+WScript.Sleep(2000);
+try { fso.DeleteFile(csFile); } catch(e) {}
+
+]]>
+</script>
+</scriptlet>
